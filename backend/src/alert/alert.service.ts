@@ -10,6 +10,7 @@ import { ExchangeService, SpreadResult } from '../exchange/exchange.service';
 import { UserService } from '../user/user.service';
 import { SUPPORTED_EXCHANGES } from '../common/constants';
 import { Telegraf } from 'telegraf';
+import { QueueService } from '../queue/queue.service';
 
 @Injectable()
 export class AlertService {
@@ -24,6 +25,7 @@ export class AlertService {
     private readonly cache: CacheService,
     private readonly config: ConfigService,
     private readonly exchangeService: ExchangeService,
+    private readonly queueService: QueueService,
   ) {}
 
   setBot(bot: Telegraf) {
@@ -116,11 +118,26 @@ export class AlertService {
         return;
       }
 
-      // All conditions passed - send alert
-      this.logger.log(`All checks passed for user ${user.telegramId}, sending alert for ${spread.symbol} ${spread.spreadPercent.toFixed(2)}%`);
+      // All conditions passed - send alert via queue
+      this.logger.log(`All checks passed for user ${user.telegramId}, queuing alert for ${spread.symbol} ${spread.spreadPercent.toFixed(2)}%`);
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:processUserAlert',message:'All checks passed, sending alert',data:{userId:user.id,telegramId:user.telegramId,symbol:spread.symbol,spreadPercent:spread.spreadPercent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:processUserAlert',message:'All checks passed, queuing alert',data:{userId:user.id,telegramId:user.telegramId,symbol:spread.symbol,spreadPercent:spread.spreadPercent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
       // #endregion
+      
+      // Add to queue for async processing
+      await this.queueService.addAlertJob({
+        userId: user.id,
+        telegramId: user.telegramId,
+        symbol: spread.symbol,
+        spreadPercent: spread.spreadPercent,
+        buyExchange: spread.buyExchange,
+        buyPrice: spread.buyPrice,
+        sellExchange: spread.sellExchange,
+        sellPrice: spread.sellPrice,
+        potentialProfit: spread.potentialProfitPerUnit,
+      });
+      
+      // Also send immediately (for now, queue will handle retries)
       await this.sendAlert(user, spread);
     } catch (error) {
       this.logger.error(`Error processing alert for user ${user.telegramId}: ${error.message}`);
@@ -271,5 +288,6 @@ ${sellEmoji} <b>SELL:</b> ${sellName}
     };
   }
 }
+
 
 

@@ -8,6 +8,7 @@ import { SUPPORTED_EXCHANGES, QUOTE_CURRENCY } from '../common/constants';
 import { Symbol } from '../database/entities/symbol.entity';
 import { ExchangeSymbol } from '../database/entities/exchange-symbol.entity';
 import Decimal from 'decimal.js';
+import { circuitBreakerManager } from '../common/circuit-breaker';
 
 export interface TickerPrice {
   exchange: string;
@@ -455,8 +456,12 @@ export class ExchangeService implements OnModuleInit, OnModuleDestroy {
       
       let ticker;
       try {
-        // 먼저 CCXT 표준 형식으로 시도
-        ticker = await exchange.fetchTicker(tradingPair);
+        // Use circuit breaker for external API calls
+        const breaker = circuitBreakerManager.getBreaker(exchangeId);
+        ticker = await breaker.execute(async () => {
+          // 먼저 CCXT 표준 형식으로 시도
+          return await exchange.fetchTicker(tradingPair);
+        });
         if (isSpecialSymbol) {
           this.logger.log(`[EXCHANGE SERVICE] Successfully fetched ticker for ${symbol}: $${ticker.last}`);
         }

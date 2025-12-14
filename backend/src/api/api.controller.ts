@@ -1009,6 +1009,117 @@ export class ApiController {
       throw new BadRequestException('CoinGecko sync failed');
     }
   }
+
+  /**
+   * GDPR: Export user data
+   */
+  @Get('gdpr/export')
+  async exportUserData(@Request() req: any) {
+    const userId = req?.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    this.logger.log(`[GDPR] Exporting data for user: ${userId}`);
+
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: ['coins', 'exchanges'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Get all alerts
+    const alerts = await this.alertRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+
+    const exportData = {
+      user: {
+        id: user.id,
+        telegram_id: user.telegramId,
+        username: user.username,
+        first_name: user.firstName,
+        last_name: user.lastName,
+        language: user.language,
+        plan: user.plan,
+        threshold: user.threshold,
+        is_muted: user.isMuted,
+        muted_until: user.mutedUntil,
+        daily_alerts_sent: user.dailyAlertsSent,
+        created_at: user.createdAt,
+        updated_at: user.updatedAt,
+      },
+      coins: user.coins?.map((c) => ({
+        symbol: c.symbol,
+        threshold: c.threshold,
+        is_active: c.isActive,
+        created_at: c.createdAt,
+      })) || [],
+      exchanges: user.exchanges?.map((e) => ({
+        exchange_id: e.exchangeId,
+        is_active: e.isActive,
+        created_at: e.createdAt,
+      })) || [],
+      alerts: alerts.map((a) => ({
+        id: a.id,
+        symbol: a.symbol,
+        spread_percent: Number(a.spreadPercent),
+        buy_exchange: a.buyExchange,
+        buy_price: Number(a.buyPrice),
+        sell_exchange: a.sellExchange,
+        sell_price: Number(a.sellPrice),
+        potential_profit: Number(a.potentialProfit || 0),
+        created_at: a.createdAt,
+      })),
+      export_date: new Date().toISOString(),
+    };
+
+    return exportData;
+  }
+
+  /**
+   * GDPR: Delete user data
+   */
+  @Delete('gdpr/delete')
+  async deleteUserData(@Request() req: any) {
+    const userId = req?.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    this.logger.log(`[GDPR] Deleting data for user: ${userId}`);
+
+    // Delete all user-related data
+    await this.alertRepo.delete({ userId });
+    await this.userCoinRepo.delete({ userId });
+    await this.userExchangeRepo.delete({ userId });
+
+    // Anonymize user data instead of deleting (for legal/audit purposes)
+    await this.userRepo.update(userId, {
+      telegramId: 0,
+      username: 'deleted_user',
+      firstName: 'Deleted',
+      lastName: 'User',
+      language: 'en',
+      plan: PlanType.FREE,
+      threshold: 0,
+      isMuted: true,
+      dailyAlertsSent: 0,
+      lsSubscriptionId: null,
+      lsSubscriptionStatus: null,
+    });
+
+    this.logger.log(`[GDPR] User data deleted/anonymized: ${userId}`);
+
+    return {
+      success: true,
+      message: 'Your data has been deleted. Your account will be deactivated.',
+    };
+  }
 }
 
 

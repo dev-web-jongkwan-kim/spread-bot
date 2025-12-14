@@ -21,6 +21,8 @@ import { SymbolModule } from './symbol/symbol.module';
 import { CoinGeckoModule } from './coingecko/coingecko.module';
 import { AdminModule } from './admin/admin.module';
 import { HealthModule } from './health/health.module';
+import { QueueModule } from './queue/queue.module';
+import { BackupModule } from './backup/backup.module';
 
 @Module({
   imports: [
@@ -47,6 +49,8 @@ import { HealthModule } from './health/health.module';
     CoinGeckoModule,
     AdminModule,
     HealthModule,
+    QueueModule,
+    BackupModule,
   ],
   controllers: [AppController],
   providers: [
