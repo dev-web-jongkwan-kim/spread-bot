@@ -40,9 +40,14 @@ export class RedisService implements OnModuleDestroy {
     await this.set(key, JSON.stringify(value), ttlSeconds);
   }
 
+  getClient(): Redis {
+    return this.redis;
+  }
+
   async onModuleDestroy() {
     await this.redis.quit();
   }
 }
+
 
 

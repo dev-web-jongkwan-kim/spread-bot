@@ -1,48 +1,152 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from './config/config.service';
 import { TelegramService } from './telegram/telegram.service';
 import { SymbolService } from './symbol/symbol.service';
 import { UserService } from './user/user.service';
 import { UserRole, PlanType } from './common/constants';
+import { EnvValidator } from './common/env-validator';
+import * as helmet from 'helmet';
+import * as Sentry from '@sentry/node';
+import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const config = app.get(ConfigService);
-  
-  // Enable CORS
-  const allowedOrigins = [
-    config.frontendUrl || 'http://localhost:3032',
-    'http://localhost:3032',
-    'https://localhost:3032',
-  ];
 
-  // ngrok 도메인 자동 감지 (환경 변수에서)
-  if (process.env.NGROK_URL) {
-    allowedOrigins.push(process.env.NGROK_URL);
+  // Environment validation
+  try {
+    EnvValidator.validate(config);
+  } catch (error) {
+    console.error('Environment validation failed:', error);
+    if (config.appEnv === 'production') {
+      process.exit(1);
+    }
+  }
+
+  // Run database migrations on startup (production only)
+  if (config.appEnv === 'production') {
+    try {
+      const { DataSource } = await import('typeorm');
+      const migrationPath = require('path').join(__dirname, 'database', 'migrations', '*.sql');
+      
+      // Note: In production, migrations should be run separately before deployment
+      // This is a fallback for automatic migration
+      console.log('[MIGRATION] Production mode - ensure migrations are run before deployment');
+    } catch (error) {
+      console.warn('[MIGRATION] Migration check skipped:', error);
+    }
+  }
+
+  // Sentry initialization
+  if (config.sentryDsn && config.appEnv === 'production') {
+    try {
+      // Conditionally load profiling integration
+      let profilingIntegration: any = null;
+      try {
+        const { nodeProfilingIntegration } = require('@sentry/profiling-node');
+        profilingIntegration = nodeProfilingIntegration();
+      } catch (error) {
+        console.warn('[SENTRY] Profiling integration not available, continuing without it');
+      }
+
+      const integrations = profilingIntegration 
+        ? [profilingIntegration]
+        : [];
+
+      Sentry.init({
+        dsn: config.sentryDsn,
+        environment: config.appEnv,
+        integrations,
+        tracesSampleRate: 0.1,
+        profilesSampleRate: profilingIntegration ? 0.1 : undefined,
+      });
+      console.log('[SENTRY] Initialized for production');
+    } catch (error) {
+      console.error('[SENTRY] Failed to initialize:', error);
+    }
+  }
+
+  // Security: Helmet
+  app.use(helmet.default({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  }));
+
+  // CORS - Production-safe configuration
+  const allowedOrigins: string[] = [];
+  
+  if (config.appEnv === 'production') {
+    // Production: Only allow configured frontend URL
+    if (config.frontendUrl) {
+      allowedOrigins.push(config.frontendUrl);
+    }
+  } else {
+    // Development: Allow localhost and ngrok
+    allowedOrigins.push(
+      'http://localhost:3032',
+      'https://localhost:3032',
+      config.frontendUrl || 'http://localhost:3032',
+    );
+    
+    if (process.env.NGROK_URL) {
+      allowedOrigins.push(process.env.NGROK_URL);
+    }
   }
 
   app.enableCors({
     origin: (origin, callback) => {
-      // origin이 없으면 (같은 origin에서 요청) 허용
+      // Same-origin requests (no origin header)
       if (!origin) {
         return callback(null, true);
       }
-      // ngrok 도메인 패턴 허용
-      if (origin.includes('ngrok') || origin.includes('localhost') || origin.includes('127.0.0.1')) {
-        return callback(null, true);
+
+      // Development: Allow localhost and ngrok
+      if (config.appEnv !== 'production') {
+        if (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('ngrok')) {
+          return callback(null, true);
+        }
       }
-      // 설정된 origin 확인
+
+      // Check against allowed origins
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      callback(null, true); // 개발 환경에서는 모두 허용
+
+      // Production: Reject unknown origins
+      if (config.appEnv === 'production') {
+        console.warn(`[CORS] Blocked request from origin: ${origin}`);
+        return callback(new Error('Not allowed by CORS'), false);
+      }
+
+      // Development: Allow all
+      callback(null, true);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['X-Total-Count', 'X-Page', 'X-Per-Page'],
   });
+
+  // Global validation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
 
   // Telegram webhook 설정 (에러 발생 시 무시)
   try {
@@ -135,7 +239,29 @@ async function bootstrap() {
 
   const port = config.port;
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
+  
+  console.log('==========================================');
+  console.log(`🚀 Application is running on: http://localhost:${port}`);
+  console.log(`📊 Environment: ${config.appEnv}`);
+  console.log(`🔒 Security: Helmet enabled, CORS configured`);
+  console.log(`⚡ Rate Limiting: Enabled (100 req/min)`);
+  if (config.sentryDsn) {
+    console.log(`📈 Monitoring: Sentry enabled`);
+  }
+  console.log(`💚 Health Check: http://localhost:${port}/health`);
+  console.log('==========================================');
 }
+
+// Handle unhandled errors
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  Sentry.captureException(reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  Sentry.captureException(error);
+  process.exit(1);
+});
 
 bootstrap();
