@@ -15,6 +15,7 @@ import { AdminGuard } from '../auth/admin.guard';
 import { AdminService } from './admin.service';
 import { SymbolService } from '../symbol/symbol.service';
 import { CoinGeckoService } from '../coingecko/coingecko.service';
+import { DataRetentionService } from '../data-retention/data-retention.service';
 import { PlanType, UserRole } from '../common/constants';
 
 @Controller('api/admin')
@@ -26,6 +27,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly symbolService: SymbolService,
     private readonly coinGeckoService: CoinGeckoService,
+    private readonly dataRetentionService: DataRetentionService,
   ) {}
 
   /**
@@ -203,6 +205,15 @@ export class AdminController {
   }
 
   /**
+   * Get system usage statistics
+   */
+  @Get('usage')
+  async getUsageStats() {
+    const data = await this.adminService.getUsageStats();
+    return { success: true, data };
+  }
+
+  /**
    * Get user behavior analytics
    */
   @Get('analytics/users')
@@ -228,6 +239,15 @@ export class AdminController {
   async getExchangeStatus() {
     const data = await this.adminService.getExchangeStatus();
     return { success: true, data };
+  }
+
+  /**
+   * Trigger data retention cleanup
+   */
+  @Post('data-retention/cleanup')
+  async triggerDataRetentionCleanup(@Body() body: { retentionDays?: number }) {
+    const result = await this.dataRetentionService.cleanupAlerts(body.retentionDays || 90);
+    return { success: true, result };
   }
 
   /**

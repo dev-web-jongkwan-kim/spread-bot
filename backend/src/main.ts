@@ -8,6 +8,7 @@ import { UserRole, PlanType } from './common/constants';
 import { EnvValidator } from './common/env-validator';
 import * as helmet from 'helmet';
 import * as Sentry from '@sentry/node';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -147,6 +148,28 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Swagger API Documentation (Internal use only)
+  if (config.appEnv !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('CryptoSpreadBot API')
+      .setDescription('Internal API documentation for CryptoSpreadBot')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .addTag('auth', 'Authentication endpoints')
+      .addTag('api', 'Main API endpoints')
+      .addTag('admin', 'Admin-only endpoints')
+      .addTag('health', 'Health check endpoints')
+      .build();
+    
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api-docs', app, document, {
+      customSiteTitle: 'CryptoSpreadBot API Docs',
+      customCss: '.swagger-ui .topbar { display: none }',
+    });
+    
+    console.log(`📚 Swagger docs available at: http://localhost:${port}/api-docs`);
+  }
 
   // Telegram webhook 설정 (에러 발생 시 무시)
   try {

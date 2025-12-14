@@ -587,6 +587,57 @@ export class AdminService {
   }
 
   /**
+   * Get system usage statistics
+   */
+  async getUsageStats() {
+    const now = new Date();
+    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // API call statistics (from logs if available)
+    const [alertsToday, alertsThisWeek, alertsThisMonth] = await Promise.all([
+      this.alertRepo.count({ where: { createdAt: MoreThanOrEqual(dayAgo) } }),
+      this.alertRepo.count({ where: { createdAt: MoreThanOrEqual(weekAgo) } }),
+      this.alertRepo.count({ where: { createdAt: MoreThanOrEqual(monthAgo) } }),
+    ]);
+
+    // Database size estimation (approximate)
+    const [userCount, alertCount, symbolCount] = await Promise.all([
+      this.userRepo.count(),
+      this.alertRepo.count(),
+      this.symbolRepo.count(),
+    ]);
+
+    // Active users (users with alerts in last 7 days)
+    const activeUsers = await this.alertRepo
+      .createQueryBuilder('alert')
+      .select('DISTINCT alert.userId', 'userId')
+      .where('alert.createdAt >= :weekAgo', { weekAgo })
+      .getRawMany();
+
+    return {
+      timestamp: now.toISOString(),
+      alerts: {
+        today: alertsToday,
+        thisWeek: alertsThisWeek,
+        thisMonth: alertsThisMonth,
+      },
+      database: {
+        users: userCount,
+        alerts: alertCount,
+        symbols: symbolCount,
+        estimatedSize: 'N/A', // Would need DB-specific queries
+      },
+      users: {
+        total: userCount,
+        active: activeUsers.length,
+        activePercentage: userCount > 0 ? Math.round((activeUsers.length / userCount) * 100) : 0,
+      },
+    };
+  }
+
+  /**
    * Get user behavior analytics
    */
   async getUserBehaviorAnalytics() {

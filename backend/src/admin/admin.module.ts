@@ -13,6 +13,7 @@ import { AuthModule } from '../auth/auth.module';
 import { UserModule } from '../user/user.module';
 import { SymbolModule } from '../symbol/symbol.module';
 import { CoinGeckoModule } from '../coingecko/coingecko.module';
+import { DataRetentionModule } from '../data-retention/data-retention.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { CoinGeckoModule } from '../coingecko/coingecko.module';
     UserModule,
     SymbolModule,
     CoinGeckoModule,
+    DataRetentionModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

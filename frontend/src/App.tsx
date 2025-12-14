@@ -24,6 +24,8 @@ import AdminExchanges from './pages/admin/AdminExchanges'
 import AdminSymbols from './pages/admin/AdminSymbols'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
+import Onboarding from './pages/Onboarding'
+import FAQ from './pages/FAQ'
 
 function App() {
   return (
@@ -36,6 +38,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/faq" element={<FAQ />} />
             <Route
               path="/"
               element={

@@ -23,6 +23,7 @@ import { AdminModule } from './admin/admin.module';
 import { HealthModule } from './health/health.module';
 import { QueueModule } from './queue/queue.module';
 import { BackupModule } from './backup/backup.module';
+import { DataRetentionModule } from './data-retention/data-retention.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { BackupModule } from './backup/backup.module';
     HealthModule,
     QueueModule,
     BackupModule,
+    DataRetentionModule,
   ],
   controllers: [AppController],
   providers: [
