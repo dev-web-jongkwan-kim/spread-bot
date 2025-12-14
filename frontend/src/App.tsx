@@ -26,6 +26,7 @@ import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 import Onboarding from './pages/Onboarding'
 import FAQ from './pages/FAQ'
+import Feedback from './pages/Feedback'
 
 function App() {
   return (
@@ -56,6 +57,7 @@ function App() {
               <Route path="settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
               <Route path="subscription" element={<ErrorBoundary><Subscription /></ErrorBoundary>} />
               <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
+              <Route path="feedback" element={<ErrorBoundary><Feedback /></ErrorBoundary>} />
               
               {/* Admin Routes */}
               <Route path="admin" element={<AdminRoute><ErrorBoundary><AdminDashboard /></ErrorBoundary></AdminRoute>} />
