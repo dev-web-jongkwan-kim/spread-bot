@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: cryptospreadbot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PORT=${PORT:-3033}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3032}
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/cryptospreadbot
+      - DATABASE_POOL_SIZE=${DATABASE_POOL_SIZE:-10}
+      - DATABASE_MAX_OVERFLOW=${DATABASE_MAX_OVERFLOW:-20}
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_SSL=${REDIS_SSL:-false}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_WEBHOOK_URL=${TELEGRAM_WEBHOOK_URL:-}
+      - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET:-}
+      - LEMONSQUEEZY_API_KEY=${LEMONSQUEEZY_API_KEY}
+      - LEMONSQUEEZY_STORE_ID=${LEMONSQUEEZY_STORE_ID}
+      - LEMONSQUEEZY_WEBHOOK_SECRET=${LEMONSQUEEZY_WEBHOOK_SECRET}
+      - LS_VARIANT_BASIC_MONTHLY=${LS_VARIANT_BASIC_MONTHLY:-}
+      - LS_VARIANT_BASIC_YEARLY=${LS_VARIANT_BASIC_YEARLY:-}
+      - LS_VARIANT_PRO_MONTHLY=${LS_VARIANT_PRO_MONTHLY:-}
+      - LS_VARIANT_PRO_YEARLY=${LS_VARIANT_PRO_YEARLY:-}
+      - LS_VARIANT_WHALE_MONTHLY=${LS_VARIANT_WHALE_MONTHLY:-}
+      - LS_VARIANT_WHALE_YEARLY=${LS_VARIANT_WHALE_YEARLY:-}
+      - AFFILIATE_BINANCE=${AFFILIATE_BINANCE:-}
+      - AFFILIATE_COINBASE=${AFFILIATE_COINBASE:-}
+      - AFFILIATE_KRAKEN=${AFFILIATE_KRAKEN:-}
+      - AFFILIATE_OKX=${AFFILIATE_OKX:-}
+      - AFFILIATE_BYBIT=${AFFILIATE_BYBIT:-}
+      - AFFILIATE_KUCOIN=${AFFILIATE_KUCOIN:-}
+      - AFFILIATE_GATEIO=${AFFILIATE_GATEIO:-}
+      - AFFILIATE_HUOBI=${AFFILIATE_HUOBI:-}
+      - PRICE_UPDATE_INTERVAL_SECONDS=${PRICE_UPDATE_INTERVAL_SECONDS:-10}
+      - ALERT_COOLDOWN_SECONDS=${ALERT_COOLDOWN_SECONDS:-300}
+      - MAX_CONCURRENT_EXCHANGES=${MAX_CONCURRENT_EXCHANGES:-8}
+      - PRICE_CACHE_TTL_SECONDS=${PRICE_CACHE_TTL_SECONDS:-5}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+    ports:
+      - "3033:3033"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
+  redis_data:
+
+
+
+

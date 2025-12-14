@@ -1,0 +1,137 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-neutral-700;
+  }
+  
+  body {
+    background: linear-gradient(to bottom right, #0F172A 0%, #1e293b 50%, #05101a 100%);
+    @apply text-neutral-100;
+    @apply antialiased;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold;
+    @apply tracking-tight;
+    @apply text-neutral-50;
+  }
+}
+
+@layer components {
+  /* Glassmorphism - Dark Mode */
+  .glass {
+    @apply bg-neutral-800/80 backdrop-blur-xl;
+    @apply border border-neutral-700/50;
+    @apply shadow-soft;
+    @apply bg-gradient-to-br from-neutral-800/90 to-neutral-800/70;
+  }
+
+  /* Card - Dark Mode with Ocean Depth */
+  .card {
+    @apply bg-neutral-800/90 rounded-2xl;
+    @apply shadow-soft;
+    @apply border border-neutral-700/50;
+    @apply transition-all duration-300;
+    @apply backdrop-blur-sm;
+  }
+
+  .card-hover {
+    @apply card;
+    @apply hover:shadow-soft-lg;
+    @apply hover:-translate-y-1;
+    border-color: rgba(30, 73, 118, 0.5);
+  }
+
+  /* Primary Button - Teal Green CTA */
+  .btn-primary {
+    background: linear-gradient(to right, #14B8A6, #0d9488, #14B8A6);
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgba(20, 184, 166, 0.3), 0 4px 6px -2px rgba(20, 184, 166, 0.2);
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .btn-primary:hover {
+    transform: scale(1.05);
+    box-shadow: 0 20px 25px -5px rgba(20, 184, 166, 0.4), 0 10px 10px -5px rgba(20, 184, 166, 0.2);
+  }
+  
+  .btn-primary:active {
+    transform: scale(0.95);
+  }
+
+  .btn-primary::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0;
+    @apply translate-x-[-100%] transition-transform duration-700;
+  }
+
+  .btn-primary:hover::before {
+    @apply translate-x-[100%];
+  }
+
+  /* Secondary Button - Ocean Blue */
+  .btn-secondary {
+    @apply bg-neutral-700/50 text-neutral-100 font-medium;
+    @apply px-6 py-3 rounded-xl;
+    @apply border border-neutral-600;
+    @apply shadow-sm;
+    @apply hover:bg-gradient-to-br hover:from-neutral-700 hover:to-neutral-800;
+    @apply hover:shadow-md;
+    @apply hover:scale-105;
+    @apply transition-all duration-200;
+    @apply active:scale-95;
+  }
+
+  /* Input - Dark Mode */
+  .input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    background-color: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(51, 65, 85, 1);
+    color: rgb(245, 245, 250);
+    transition: all 0.2s;
+  }
+  
+  .input::placeholder {
+    color: rgb(100, 116, 139);
+  }
+  
+  .input:hover {
+    border-color: rgb(71, 85, 105);
+  }
+  
+  .input:focus {
+    outline: none;
+    border-color: #14B8A6;
+    box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.3), 0 4px 6px -1px rgba(20, 184, 166, 0.1), 0 2px 4px -1px rgba(20, 184, 166, 0.06);
+  }
+
+  /* 반응형 텍스트 크기 */
+  .text-responsive {
+    @apply text-sm sm:text-base md:text-lg;
+  }
+
+  /* 그라디언트 텍스트 */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent;
+  }
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+
+
