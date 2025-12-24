@@ -8,7 +8,7 @@ import { UserExchange } from '../database/entities/user-exchange.entity';
 import { UnifiedSymbol } from '../database/entities/unified-symbol.entity';
 import { UnifiedSymbolExchange } from '../database/entities/unified-symbol-exchange.entity';
 import { UserService } from '../user/user.service';
-import { SUPPORTED_EXCHANGES, PlanType, Language } from '../common/constants';
+import { SUPPORTED_EXCHANGES, PlanType, Language, PLAN_LIMITS } from '../common/constants';
 import { AuthGuard } from '../auth/auth.guard';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { ExchangeService } from '../exchange/exchange.service';

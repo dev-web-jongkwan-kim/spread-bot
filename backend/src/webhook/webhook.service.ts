@@ -25,7 +25,7 @@ export class WebhookService {
     this.logger.log(`Lemon Squeezy webhook: ${eventName}`);
 
     const subscriptionId = payload.data?.id;
-    let webhookEvent: WebhookEvent;
+    let webhookEvent: WebhookEvent | undefined;
 
     // Log webhook event - start
     try {

@@ -1,6 +1,17 @@
 User-agent: *
 Allow: /
+Allow: /about
+Allow: /features
+Allow: /pricing
+Allow: /contact
+Allow: /faq
+Allow: /terms
+Allow: /privacy
+Allow: /login
+
+# Disallow protected routes
+Disallow: /app/
 Disallow: /admin/
 
-Sitemap: https://yourdomain.com/sitemap.xml
+Sitemap: https://cryptospreadbot.com/sitemap.xml
 

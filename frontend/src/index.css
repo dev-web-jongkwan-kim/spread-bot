@@ -20,6 +20,22 @@
     @apply font-semibold;
     @apply tracking-tight;
     @apply text-neutral-50;
+    letter-spacing: -0.02em; /* Tighter letter spacing for headings */
+  }
+
+  /* Improved line-height for better readability - 2025 trend */
+  p {
+    line-height: 1.8; /* Increased from default 1.5 */
+    letter-spacing: 0.01em; /* Slight letter spacing for body text */
+  }
+
+  /* Better spacing for lists */
+  ul, ol {
+    line-height: 1.8;
+  }
+
+  li {
+    margin-bottom: 0.75rem; /* More space between list items */
   }
 }
 
@@ -32,13 +48,14 @@
     @apply bg-gradient-to-br from-neutral-800/90 to-neutral-800/70;
   }
 
-  /* Card - Dark Mode with Ocean Depth */
+  /* Card - Dark Mode with Ocean Depth - 2025 modern style with generous spacing */
   .card {
     @apply bg-neutral-800/90 rounded-2xl;
     @apply shadow-soft;
     @apply border border-neutral-700/50;
     @apply transition-all duration-300;
     @apply backdrop-blur-sm;
+    @apply p-8 md:p-10; /* Increased padding for better breathing room */
   }
 
   .card-hover {
@@ -46,6 +63,33 @@
     @apply hover:shadow-soft-lg;
     @apply hover:-translate-y-1;
     border-color: rgba(30, 73, 118, 0.5);
+  }
+
+  /* Card without default padding - use when you need custom padding */
+  .card-no-padding {
+    @apply bg-neutral-800/90 rounded-2xl;
+    @apply shadow-soft;
+    @apply border border-neutral-700/50;
+    @apply transition-all duration-300;
+    @apply backdrop-blur-sm;
+  }
+
+  /* Section spacing utilities */
+  .section-spacing {
+    @apply py-16 md:py-24 lg:py-32;
+  }
+
+  .section-spacing-sm {
+    @apply py-12 md:py-16 lg:py-20;
+  }
+
+  /* Content container with proper spacing */
+  .content-wrapper {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .content-wrapper-sm {
+    @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8;
   }
 
   /* Primary Button - Teal Green CTA */

@@ -6,6 +6,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Enable cookies for cross-origin requests
 })
 
 // Request interceptor - 토큰 추가 및 로깅
@@ -44,9 +45,11 @@ api.interceptors.response.use(
       error.response?.data || error.message,
       error.config?.data,
     )
-    
+
     if (error.response?.status === 401) {
+      // Clear both localStorage and cookie
       localStorage.removeItem('auth_token')
+      // Cookie will be cleared by server on /api/auth/logout
       window.location.href = '/login'
     }
     return Promise.reject(error)

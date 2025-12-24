@@ -12,8 +12,6 @@ import {
   Menu,
   X,
   User as UserIcon,
-  Moon,
-  Sun,
   Shield,
   Users,
   Server,
@@ -21,48 +19,33 @@ import {
   BarChart3,
   Database,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 export default function Layout() {
   const { user, logout } = useAuth()
   const { t } = useI18n()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [darkMode, setDarkMode] = useState(() => {
-    // localStorage에서 다크모드 설정 읽기, 기본값은 true (다크모드)
-    const saved = localStorage.getItem('darkMode')
-    return saved !== null ? saved === 'true' : true
-  })
-
-  useEffect(() => {
-    // 다크모드 상태에 따라 document에 클래스 추가/제거
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-    localStorage.setItem('darkMode', darkMode.toString())
-  }, [darkMode])
 
   const navigation = [
-    { name: t('nav.dashboard'), href: '/dashboard', icon: LayoutDashboard },
-    { name: t('nav.coins'), href: '/coins', icon: CoinsIcon },
-    { name: t('nav.exchanges'), href: '/exchanges', icon: Building2 },
-    { name: t('nav.alerts'), href: '/alerts', icon: Bell },
-    { name: t('nav.settings'), href: '/settings', icon: Settings },
-    { name: t('nav.subscription'), href: '/subscription', icon: CreditCard },
-    { name: t('nav.profile') || 'Profile', href: '/profile', icon: UserIcon },
+    { name: t('nav.dashboard'), href: '/app/dashboard', icon: LayoutDashboard },
+    { name: t('nav.coins'), href: '/app/coins', icon: CoinsIcon },
+    { name: t('nav.exchanges'), href: '/app/exchanges', icon: Building2 },
+    { name: t('nav.alerts'), href: '/app/alerts', icon: Bell },
+    { name: t('nav.settings'), href: '/app/settings', icon: Settings },
+    { name: t('nav.subscription'), href: '/app/subscription', icon: CreditCard },
+    { name: t('nav.profile') || 'Profile', href: '/app/profile', icon: UserIcon },
   ]
 
   // Admin navigation (only visible to admins)
   const adminNavigation = [
-    { name: 'Overview', href: '/admin', icon: Shield },
-    { name: 'Monitoring', href: '/admin/monitoring', icon: Activity },
-    { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
-    { name: 'Users', href: '/admin/users', icon: Users },
-    { name: 'Exchanges', href: '/admin/exchanges', icon: Building2 },
-    { name: 'Symbols', href: '/admin/symbols', icon: Database },
-    { name: 'System', href: '/admin/system', icon: Server },
+    { name: 'Overview', href: '/app/admin', icon: Shield },
+    { name: 'Monitoring', href: '/app/admin/monitoring', icon: Activity },
+    { name: 'Analytics', href: '/app/admin/analytics', icon: BarChart3 },
+    { name: 'Users', href: '/app/admin/users', icon: Users },
+    { name: 'Exchanges', href: '/app/admin/exchanges', icon: Building2 },
+    { name: 'Symbols', href: '/app/admin/symbols', icon: Database },
+    { name: 'System', href: '/app/admin/system', icon: Server },
   ]
 
   const isAdmin = (user as any)?.role === 'admin'
@@ -129,13 +112,6 @@ export default function Layout() {
               </h1>
             </div>
             <div className="flex items-center gap-x-3 sm:gap-x-4">
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className="p-2 text-neutral-300 hover:text-neutral-100 hover:bg-neutral-700 rounded-lg transition-colors"
-                title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              >
-                {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              </button>
               <div className="text-sm hidden sm:block">
                 <span className="font-semibold text-neutral-100">
                   {user?.first_name || user?.username || 'User'}

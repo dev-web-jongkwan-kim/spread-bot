@@ -76,8 +76,8 @@ export class AuthService {
     // Rotate refresh token for security
     const newRefreshToken = await this.generateRefreshToken(
       tokenRecord.userId,
-      tokenRecord.userAgent,
-      tokenRecord.ipAddress,
+      tokenRecord.userAgent ?? undefined,
+      tokenRecord.ipAddress ?? undefined,
     );
 
     // Revoke old refresh token
@@ -91,7 +91,7 @@ export class AuthService {
       { token },
       { isRevoked: true },
     );
-    return result.affected > 0;
+    return (result.affected ?? 0) > 0;
   }
 
   async revokeAllUserTokens(userId: string): Promise<void> {

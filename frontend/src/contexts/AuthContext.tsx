@@ -72,12 +72,24 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     }
   }
 
-  const logout = () => {
-    logger.userAction('logout')
-    localStorage.removeItem('auth_token')
-    logger.setUserId('')
-    setUser(null)
-    navigate('/login')
+  const logout = async () => {
+    try {
+      logger.userAction('logout')
+      // Call server to clear HTTP-only cookie
+      await api.post('/auth/logout').catch(() => {
+        // Ignore errors, clear local state anyway
+      })
+      localStorage.removeItem('auth_token')
+      logger.setUserId('')
+      setUser(null)
+      navigate('/')
+    } catch (error) {
+      // Always clear local state even if server request fails
+      localStorage.removeItem('auth_token')
+      logger.setUserId('')
+      setUser(null)
+      navigate('/')
+    }
   }
 
   const refreshUser = async () => {

@@ -1,11 +1,47 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
+import { TrendingUp, ArrowLeft } from 'lucide-react'
+import api from '../services/api'
+import { logger } from '../services/logger'
 
 export default function Login() {
   const widgetRef = useRef<HTMLDivElement>(null)
-  const { login } = useAuth()
+  const { user, login, refreshUser } = useAuth()
   const { t } = useI18n()
+  const navigate = useNavigate()
+  const [devLoginLoading, setDevLoginLoading] = useState<string | null>(null)
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/app/dashboard')
+    }
+  }, [user, navigate])
+
+  const handleDevLogin = async (account: string) => {
+    try {
+      setDevLoginLoading(account)
+      logger.userAction('dev_login_attempt', { account })
+      const response = await api.post('/auth/dev-login', { account })
+      const { token, user } = response.data
+      localStorage.setItem('auth_token', token)
+      if (user?.id) {
+        logger.setUserId(user.id)
+      }
+      logger.userAction('dev_login_success', { account, userId: user?.id })
+      // Refresh user to load the new user data
+      await refreshUser()
+      navigate('/app/dashboard')
+    } catch (error) {
+      logger.error('Dev login failed', error instanceof Error ? error : new Error(String(error)), { account })
+      console.error('Dev login failed:', error)
+      alert('Dev login failed. Check console for details.')
+    } finally {
+      setDevLoginLoading(null)
+    }
+  }
 
   useEffect(() => {
     const botUsername = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'your_bot_username'
@@ -143,19 +179,38 @@ export default function Login() {
   }, [login])
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-gradient-to-br from-primary-500 via-primary-600 to-accent-600">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-gradient-to-b from-ocean-900 via-ocean-800 to-ocean-900">
+      {/* Back to home button */}
+      <Link
+        to="/"
+        className="fixed top-8 left-8 flex items-center space-x-2 text-ocean-200 hover:text-white transition-all group z-10"
+      >
+        <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+        <span className="font-medium">{t('nav.backToHome') || 'Back to Home'}</span>
+      </Link>
+
+      {/* Logo at top */}
+      <Link to="/" className="fixed top-8 right-8 flex items-center space-x-3 group z-10">
+        <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-ocean-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-soft">
+          <TrendingUp className="w-6 h-6 text-white" />
+        </div>
+        <span className="text-xl font-bold bg-gradient-to-r from-white to-ocean-200 bg-clip-text text-transparent hidden sm:block">
+          CryptoSpreadBot
+        </span>
+      </Link>
+
       <div className="max-w-md w-full glass rounded-3xl shadow-soft-lg p-6 sm:p-8 md:p-10">
         <div className="text-center mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent mb-3">
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">
             CryptoSpreadBot
           </h1>
-          <p className="text-sm sm:text-base text-neutral-600">
+          <p className="text-sm sm:text-base text-ocean-200">
             {t('login.description')}
           </p>
         </div>
 
         <div className="mb-6">
-          <p className="text-sm sm:text-base text-neutral-700 mb-4 text-center font-medium">
+          <p className="text-sm sm:text-base text-ocean-100 mb-4 text-center font-medium">
             {t('login.loginWithTelegram')}
           </p>
           <div 
@@ -164,57 +219,60 @@ export default function Login() {
             className="flex justify-center min-h-[50px]"
           ></div>
           
-          {/* 개발 모드 또는 ngrok: 임시 로그인 버튼 */}
+          {/* 개발 모드 또는 ngrok: 테스트 계정 로그인 버튼 */}
           {(import.meta.env.DEV || window.location.hostname.includes('ngrok')) && (
             <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
               <p className="text-xs sm:text-sm text-amber-800 mb-3 text-center font-medium">
-                ⚠️ {t('login.devLogin') || 'Development Login'}
+                🧪 {t('login.devLogin') || 'Development Login'}
               </p>
               <p className="text-xs text-amber-700 mb-3 text-center">
-                {t('login.devLoginDesc') || 'Test with different users (auto signup on first login)'}
+                {t('login.testAccountsDesc') || 'Quick test login with predefined accounts'}
               </p>
               <div className="space-y-2">
                 <button
-                  onClick={async () => {
-                    await login({
-                      id: 123456789,
-                      username: 'dev_user_1',
-                      first_name: 'Dev',
-                      last_name: 'User 1',
-                    })
-                  }}
-                  className="w-full btn-secondary text-sm"
+                  onClick={() => handleDevLogin('free')}
+                  disabled={devLoginLoading !== null}
+                  className="w-full btn-secondary text-sm flex items-center justify-between hover:bg-ocean-100 transition-colors disabled:opacity-50"
                 >
-                  {t('login.devLogin') || 'Dev Login'} - User 1
+                  <span>🆓 FREE Plan</span>
+                  {devLoginLoading === 'free' && <span className="text-xs">...</span>}
                 </button>
                 <button
-                  onClick={async () => {
-                    await login({
-                      id: 987654321,
-                      username: 'dev_user_2',
-                      first_name: 'Test',
-                      last_name: 'User 2',
-                    })
-                  }}
-                  className="w-full btn-secondary text-sm"
+                  onClick={() => handleDevLogin('pro')}
+                  disabled={devLoginLoading !== null}
+                  className="w-full btn-secondary text-sm flex items-center justify-between hover:bg-ocean-100 transition-colors disabled:opacity-50"
                 >
-                  {t('login.devLogin') || 'Dev Login'} - User 2
+                  <span>⭐ PRO Plan</span>
+                  {devLoginLoading === 'pro' && <span className="text-xs">...</span>}
                 </button>
                 <button
-                  onClick={async () => {
-                    const randomId = Math.floor(Math.random() * 1000000000)
-                    await login({
-                      id: randomId,
-                      username: `user_${randomId}`,
-                      first_name: 'Random',
-                      last_name: `User ${randomId}`,
-                    })
-                  }}
-                  className="w-full btn-secondary text-sm"
+                  onClick={() => handleDevLogin('whale')}
+                  disabled={devLoginLoading !== null}
+                  className="w-full btn-secondary text-sm flex items-center justify-between hover:bg-ocean-100 transition-colors disabled:opacity-50"
                 >
-                  {t('login.randomUser') || 'Random User (New Signup)'}
+                  <span>🐋 WHALE Plan</span>
+                  {devLoginLoading === 'whale' && <span className="text-xs">...</span>}
+                </button>
+                <button
+                  onClick={() => handleDevLogin('new')}
+                  disabled={devLoginLoading !== null}
+                  className="w-full btn-secondary text-sm flex items-center justify-between hover:bg-ocean-100 transition-colors disabled:opacity-50"
+                >
+                  <span>👤 NEW User (FREE)</span>
+                  {devLoginLoading === 'new' && <span className="text-xs">...</span>}
+                </button>
+                <button
+                  onClick={() => handleDevLogin('admin')}
+                  disabled={devLoginLoading !== null}
+                  className="w-full btn-primary text-sm flex items-center justify-between hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  <span>👑 ADMIN (WHALE)</span>
+                  {devLoginLoading === 'admin' && <span className="text-xs">...</span>}
                 </button>
               </div>
+              <p className="text-xs text-amber-600 mt-3 text-center italic">
+                * Only available in development mode
+              </p>
             </div>
           )}
         </div>

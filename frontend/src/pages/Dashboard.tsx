@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
 import { logger } from '../services/logger'
@@ -151,12 +152,12 @@ export default function Dashboard() {
             </p>
           </div>
           {user?.plan === 'free' && (
-            <a
-              href="/subscription"
+            <Link
+              to="/app/subscription"
               className="btn-primary whitespace-nowrap"
             >
               {t('dashboard.upgrade')}
-            </a>
+            </Link>
           )}
         </div>
       </div>
@@ -376,14 +377,14 @@ export default function Dashboard() {
             {t('dashboard.setupRequiredDesc') || 'Please add coins and select exchanges to start monitoring.'}
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <a href="/coins" className="btn-primary inline-flex items-center justify-center gap-2">
+            <Link to="/app/coins" className="btn-primary inline-flex items-center justify-center gap-2">
               <CoinsIcon className="h-5 w-5" />
               {t('nav.coins')}
-            </a>
-            <a href="/exchanges" className="btn-secondary inline-flex items-center justify-center gap-2">
+            </Link>
+            <Link to="/app/exchanges" className="btn-secondary inline-flex items-center justify-center gap-2">
               <Building2 className="h-5 w-5" />
               {t('nav.exchanges')}
-            </a>
+            </Link>
           </div>
         </div>
       )}
@@ -442,12 +443,12 @@ export default function Dashboard() {
         </div>
         {recentAlerts.length > 0 && (
           <div className="px-4 sm:px-6 py-4 border-t border-neutral-200/50">
-            <a
-              href="/alerts"
+            <Link
+              to="/app/alerts"
               className="text-sm font-medium text-teal-400 hover:text-teal-300 transition-colors inline-flex items-center gap-1"
             >
               {t('dashboard.viewAll')} →
-            </a>
+            </Link>
           </div>
         )}
       </div>

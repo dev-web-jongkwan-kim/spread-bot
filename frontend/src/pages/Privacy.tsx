@@ -1,15 +1,42 @@
 import { useI18n } from '../i18n/I18nContext'
+import SEOHead from '../components/SEOHead'
+import PublicHeader from '../components/PublicHeader'
+import PublicFooter from '../components/PublicFooter'
+import { Shield } from 'lucide-react'
 
 export default function Privacy() {
   const { t } = useI18n()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-ocean-900 via-ocean-800 to-ocean-900 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="glass rounded-2xl shadow-soft-lg p-8 md:p-12">
-          <h1 className="text-4xl font-bold text-primary-400 mb-8">
-            {t('privacy.title') || 'Privacy Policy'}
-          </h1>
+    <>
+      <SEOHead
+        title="Privacy Policy | CryptoSpreadBot"
+        description="Learn how CryptoSpreadBot collects, uses, and protects your personal information"
+        keywords="privacy policy, data protection, cryptocurrency, crypto bot"
+      />
+
+      <div className="min-h-screen bg-gradient-to-b from-ocean-900 via-ocean-800 to-ocean-900">
+        <PublicHeader />
+
+        {/* Hero Section */}
+        <section className="pt-40 pb-24 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-teal-500 to-ocean-500 rounded-2xl mb-8 shadow-soft-lg">
+              <Shield className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
+              Privacy Policy
+            </h1>
+            <p className="text-xl text-ocean-200">
+              Last updated: December 2025
+            </p>
+          </div>
+        </section>
+
+        {/* Content Section */}
+        <section className="py-24 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="card">
 
           <div className="prose prose-invert max-w-none space-y-6 text-neutral-300">
             <section>
@@ -124,10 +151,14 @@ export default function Privacy() {
             <div className="mt-8 pt-6 border-t border-ocean-700 text-sm text-neutral-400">
               <p>Last updated: {new Date().toLocaleDateString()}</p>
             </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
+
+        <PublicFooter />
       </div>
-    </div>
+    </>
   )
 }
 

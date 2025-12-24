@@ -101,7 +101,7 @@ export default function Settings() {
     }
   }
 
-  const canUseCustomThreshold = true
+  const canUseCustomThreshold = (user as any)?.role === 'admin'
 
   return (
     <div className="space-y-6">
