@@ -14,28 +14,16 @@ export class TelegramService implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'telegram.service.ts:onModuleInit',message:'Initializing telegram bot',data:{hasBot:!!this.bot},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'X'})}).catch(()=>{});
-      // #endregion
       
       // Bot이 유효한지 확인
       const botInfo = await this.bot.telegram.getMe();
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'telegram.service.ts:onModuleInit',message:'Bot info retrieved',data:{botId:botInfo.id,botUsername:botInfo.username},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'Y'})}).catch(()=>{});
-      // #endregion
       
       this.alertService.setBot(this.bot);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'telegram.service.ts:onModuleInit',message:'Bot set to alert service',data:{botId:botInfo.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'Z'})}).catch(()=>{});
-      // #endregion
       
       this.logger.log('Telegram bot initialized');
     } catch (error: any) {
       this.logger.warn(`Telegram bot initialization failed: ${error.message}`);
       this.logger.warn('Telegram bot features will be disabled');
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'telegram.service.ts:onModuleInit',message:'Bot initialization failed',data:{error:error.message,errorStack:error.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'AA'})}).catch(()=>{});
-      // #endregion
     }
   }
 
@@ -49,6 +37,16 @@ export class TelegramService implements OnModuleInit {
   async deleteWebhook() {
     await this.bot.telegram.deleteWebhook();
     this.logger.log('Webhook deleted');
+  }
+
+  async sendMessage(chatId: number, text: string, options?: any) {
+    try {
+      await this.bot.telegram.sendMessage(chatId, text, options);
+      this.logger.log(`Message sent to ${chatId}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send message to ${chatId}: ${error.message}`);
+      throw error;
+    }
   }
 }
 

@@ -6,6 +6,8 @@ import {
   HttpCode,
   HttpStatus,
   Get,
+  UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import { WebhookService } from './webhook.service';
 import { ConfigService } from '../config/config.service';
@@ -13,6 +15,8 @@ import * as crypto from 'crypto';
 
 @Controller('webhook')
 export class WebhookController {
+  private readonly logger = new Logger(WebhookController.name);
+
   constructor(
     private readonly webhookService: WebhookService,
     private readonly config: ConfigService,
@@ -37,7 +41,8 @@ export class WebhookController {
     @Headers('x-signature') signature: string,
   ) {
     if (!signature) {
-      throw new Error('Missing signature');
+      this.logger.error('Missing webhook signature');
+      throw new UnauthorizedException('Missing signature');
     }
 
     // Verify signature
@@ -46,9 +51,22 @@ export class WebhookController {
       .update(JSON.stringify(body))
       .digest('hex');
 
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
-      throw new Error('Invalid signature');
+    // Check length first to prevent timing attack on length comparison
+    if (signature.length !== expectedSignature.length) {
+      this.logger.error('Signature length mismatch');
+      throw new UnauthorizedException('Invalid webhook signature');
     }
+
+    // Timing-safe comparison
+    if (!crypto.timingSafeEqual(
+      Buffer.from(signature, 'utf-8'),
+      Buffer.from(expectedSignature, 'utf-8')
+    )) {
+      this.logger.error('Signature validation failed');
+      throw new UnauthorizedException('Invalid webhook signature');
+    }
+
+    this.logger.log('✅ Webhook signature verified');
 
     const eventName = body.meta?.event_name;
     if (eventName) {

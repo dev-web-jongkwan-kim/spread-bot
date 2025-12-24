@@ -11,6 +11,8 @@ import { Symbol } from './entities/symbol.entity';
 import { ExchangeSymbol } from './entities/exchange-symbol.entity';
 import { UnifiedSymbol } from './entities/unified-symbol.entity';
 import { UnifiedSymbolExchange } from './entities/unified-symbol-exchange.entity';
+import { WebhookEvent } from './entities/webhook-event.entity';
+import { RefreshToken } from './entities/refresh-token.entity';
 
 @Module({
   imports: [
@@ -20,39 +22,28 @@ import { UnifiedSymbolExchange } from './entities/unified-symbol-exchange.entity
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const dbUrl = config.databaseUrl;
-        // 데이터베이스 URL이 없거나 잘못된 경우 기본값 사용
+
         if (!dbUrl || dbUrl === '') {
-          console.warn('DATABASE_URL not set, using default connection');
-          return {
-            type: 'postgres',
-            host: 'localhost',
-            port: 5432,
-            username: 'postgres',
-            password: 'postgres',
-            database: 'cryptospreadbot',
-            entities: [User, UserCoin, UserExchange, Alert, Log, Symbol, ExchangeSymbol, UnifiedSymbol, UnifiedSymbolExchange],
-            synchronize: config.appEnv === 'development',
-            logging: config.appDebug,
-            extra: {
-              max: config.databasePoolSize,
-              maxOverflow: config.databaseMaxOverflow,
-            },
-          };
+          throw new Error('DATABASE_URL is required but not configured');
         }
+
         return {
           type: 'postgres',
           url: dbUrl,
-          entities: [User, UserCoin, UserExchange, Alert, Log, Symbol, ExchangeSymbol],
-          synchronize: config.appEnv === 'development',
+          entities: [User, UserCoin, UserExchange, Alert, Log, Symbol, ExchangeSymbol, UnifiedSymbol, UnifiedSymbolExchange, WebhookEvent, RefreshToken],
+          synchronize: false, // Always use migrations in production
           logging: config.appDebug,
+          ssl: config.appEnv === 'production' ? { rejectUnauthorized: false } : false,
           extra: {
-            max: config.databasePoolSize,
-            maxOverflow: config.databaseMaxOverflow,
+            max: config.appEnv === 'production' ? 20 : config.databasePoolSize, // Increase pool size for production
+            connectionTimeoutMillis: 5000,
+            idleTimeoutMillis: 30000, // Close idle connections after 30s
+            statement_timeout: 30000, // 30s query timeout
           },
         };
       },
     }),
-    TypeOrmModule.forFeature([User, UserCoin, UserExchange, Alert, Log, Symbol, ExchangeSymbol, UnifiedSymbol, UnifiedSymbolExchange]),
+    TypeOrmModule.forFeature([User, UserCoin, UserExchange, Alert, Log, Symbol, ExchangeSymbol, UnifiedSymbol, UnifiedSymbolExchange, WebhookEvent, RefreshToken]),
   ],
   exports: [TypeOrmModule],
 })

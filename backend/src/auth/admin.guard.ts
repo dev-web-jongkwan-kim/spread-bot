@@ -19,12 +19,21 @@ export class AdminGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
+    const cookieToken = request.cookies?.auth_token;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Try cookie first, then Authorization header
+    let token: string | null = null;
+
+    if (cookieToken) {
+      token = cookieToken;
+    } else if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.replace('Bearer ', '');
+    }
+
+    if (!token) {
       throw new UnauthorizedException('Authentication required');
     }
 
-    const token = authHeader.replace('Bearer ', '');
     const payload = this.authService.verifyToken(token);
 
     if (!payload || !payload.id) {

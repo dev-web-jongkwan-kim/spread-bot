@@ -70,18 +70,12 @@ export class PriceMonitorService implements OnModuleInit, OnModuleDestroy {
 
   private async processSymbol(symbol: string) {
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'price-monitor.service.ts:processSymbol',message:'Processing symbol',data:{symbol,exchanges:MVP_EXCHANGES},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       
       const spread = await this.exchangeService.calculateSpread(
         symbol,
         MVP_EXCHANGES,
       );
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'price-monitor.service.ts:processSymbol',message:'Spread calculated',data:{symbol,spread:spread?{spreadPercent:spread.spreadPercent,buyExchange:spread.buyExchange,sellExchange:spread.sellExchange}:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
 
       if (!spread) {
         this.logger.debug(`No spread calculated for ${symbol}`);
@@ -93,9 +87,6 @@ export class PriceMonitorService implements OnModuleInit, OnModuleDestroy {
       await this.alertService.checkAndSendAlerts(symbol, spread);
     } catch (error) {
       this.logger.error(`Error processing symbol ${symbol}: ${error.message}`);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'price-monitor.service.ts:processSymbol',message:'Error processing symbol',data:{symbol,error:error.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
     }
   }
 

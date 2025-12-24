@@ -17,37 +17,24 @@ export class UserRepository {
   ) {}
 
   async findByTelegramId(telegramId: number): Promise<User | null> {
-    const user = await this.userRepo.findOne({
+    return this.userRepo.findOne({
       where: { telegramId },
+      relations: ['coins', 'exchanges'],
     });
-    if (!user) return null;
-    return this.loadRelations(user);
   }
 
   async findById(id: string): Promise<User | null> {
-    const user = await this.userRepo.findOne({
+    return this.userRepo.findOne({
       where: { id },
+      relations: ['coins', 'exchanges'],
     });
-    if (!user) return null;
-    return this.loadRelations(user);
   }
 
   async findBySubscriptionId(subscriptionId: string): Promise<User | null> {
-    const user = await this.userRepo.findOne({
+    return this.userRepo.findOne({
       where: { lsSubscriptionId: subscriptionId },
+      relations: ['coins', 'exchanges'],
     });
-    if (!user) return null;
-    return this.loadRelations(user);
-  }
-
-  private async loadRelations(user: User): Promise<User> {
-    const [coins, exchanges] = await Promise.all([
-      this.userCoinRepo.find({ where: { userId: user.id } }),
-      this.userExchangeRepo.find({ where: { userId: user.id } }),
-    ]);
-    user.coins = coins;
-    user.exchanges = exchanges;
-    return user;
   }
 
   async create(userData: Partial<User>): Promise<User> {
@@ -79,12 +66,11 @@ export class UserRepository {
     symbol: string,
     exchanges: string[],
   ): Promise<User[]> {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'user.repository.ts:getUsersMonitoringSymbol',message:'Finding users monitoring symbol',data:{symbol,exchanges},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'S'})}).catch(()=>{});
-    // #endregion
-    
+
     const users = await this.userRepo
       .createQueryBuilder('user')
+      .leftJoinAndSelect('user.coins', 'coins')
+      .leftJoinAndSelect('user.exchanges', 'exchanges')
       .innerJoin('user_coins', 'coin', 'coin.userId = user.id AND coin.symbol = :symbol AND coin.isActive = true', {
         symbol,
       })
@@ -92,21 +78,12 @@ export class UserRepository {
       .where('exchange.exchangeId IN (:...exchanges)', { exchanges })
       .andWhere('(user.isMuted = false OR user.mutedUntil < NOW())')
       .groupBy('user.id')
+      .addGroupBy('coins.id')
+      .addGroupBy('exchanges.id')
       .having('COUNT(DISTINCT exchange.exchangeId) >= 2')
       .getMany();
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'user.repository.ts:getUsersMonitoringSymbol',message:'Users found from query',data:{symbol,userCount:users.length,userIds:users.map(u=>u.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'T'})}).catch(()=>{});
-    // #endregion
-    
-    // Load relations for each user
-    const usersWithRelations = await Promise.all(users.map(u => this.loadRelations(u)));
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'user.repository.ts:getUsersMonitoringSymbol',message:'Users with relations loaded',data:{symbol,userCount:usersWithRelations.length,users:usersWithRelations.map(u=>({id:u.id,telegramId:u.telegramId,threshold:Number(u.threshold),coins:u.coins?.filter(c=>c.isActive).map(c=>c.symbol),exchanges:u.exchanges?.filter(e=>e.isActive).map(e=>e.exchangeId)}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'U'})}).catch(()=>{});
-    // #endregion
-    
-    return usersWithRelations;
+
+    return users;
   }
 
   async getAllMonitoredSymbols(): Promise<string[]> {
@@ -115,9 +92,6 @@ export class UserRepository {
       select: ['symbol'],
     });
     const symbols = [...new Set(coins.map((c) => c.symbol))];
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'user.repository.ts:getAllMonitoredSymbols',message:'All monitored symbols from DB',data:{symbols,symbolCount:symbols.length,coinCount:coins.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'AC'})}).catch(()=>{});
-    // #endregion
     return symbols;
   }
 }

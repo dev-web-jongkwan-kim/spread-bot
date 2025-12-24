@@ -5,7 +5,14 @@ import { PlanType, Language, PLAN_LIMITS } from '../common/constants';
 
 @Injectable()
 export class UserService {
+  private cacheInvalidators: Array<(userId: string) => void> = [];
+
   constructor(private readonly userRepo: UserRepository) {}
+
+  // Register a cache invalidator (used by AuthGuard)
+  registerCacheInvalidator(invalidator: (userId: string) => void): void {
+    this.cacheInvalidators.push(invalidator);
+  }
 
   async getByTelegramId(telegramId: number): Promise<User | null> {
     return this.userRepo.findByTelegramId(telegramId);
@@ -34,14 +41,16 @@ export class UserService {
   }
 
   async update(id: string, userData: Partial<User>): Promise<User> {
-    return this.userRepo.update(id, userData);
+    const updated = await this.userRepo.update(id, userData);
+
+    // Invalidate cache for this user
+    this.cacheInvalidators.forEach((invalidator) => invalidator(id));
+
+    return updated;
   }
 
   async getAllMonitoredSymbols(): Promise<string[]> {
     const symbols = await this.userRepo.getAllMonitoredSymbols();
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'user.service.ts:getAllMonitoredSymbols',message:'All monitored symbols',data:{symbols,symbolCount:symbols.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'AB'})}).catch(()=>{});
-    // #endregion
     return symbols;
   }
 

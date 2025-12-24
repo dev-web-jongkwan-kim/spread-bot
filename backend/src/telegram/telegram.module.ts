@@ -22,8 +22,19 @@ import { ExchangeModule } from '../exchange/exchange.module';
             token: 'dummy-token-for-development',
           };
         }
+
+        const webhookSecret = config.telegramWebhookSecret;
+        const webhookUrl = config.telegramWebhookUrl;
+
         return {
           token,
+          launchOptions: webhookUrl ? {
+            webhook: {
+              domain: webhookUrl,
+              hookPath: '/webhook/telegram',
+              secretToken: webhookSecret,
+            },
+          } : undefined,
         };
       },
     }),

@@ -40,6 +40,25 @@ export class RedisService implements OnModuleDestroy {
     await this.set(key, JSON.stringify(value), ttlSeconds);
   }
 
+  /**
+   * Set a key-value pair only if the key does not exist (atomic operation)
+   * Returns true if the key was set, false if it already existed
+   */
+  async setNX(key: string, value: string, ttlSeconds?: number): Promise<boolean> {
+    let result: string | null;
+
+    if (ttlSeconds) {
+      // SET key value EX seconds NX
+      result = await this.redis.set(key, value, 'EX', ttlSeconds, 'NX');
+    } else {
+      // SET key value NX
+      result = await this.redis.set(key, value, 'NX');
+    }
+
+    // Redis returns 'OK' if set successfully, null if key already exists
+    return result === 'OK';
+  }
+
   getClient(): Redis {
     return this.redis;
   }

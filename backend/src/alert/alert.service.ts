@@ -33,18 +33,12 @@ export class AlertService {
   }
 
   async checkAndSendAlerts(symbol: string, spread: SpreadResult) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:checkAndSendAlerts',message:'Checking alerts',data:{symbol,spreadPercent:spread.spreadPercent,buyExchange:spread.buyExchange,sellExchange:spread.sellExchange},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     
     const users = await this.userRepo.getUsersMonitoringSymbol(symbol, [
       spread.buyExchange,
       spread.sellExchange,
     ]);
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:checkAndSendAlerts',message:'Users found for symbol',data:{symbol,userCount:users.length,userIds:users.map(u=>u.id),telegramIds:users.map(u=>u.telegramId)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
 
     this.logger.debug(`Found ${users.length} users monitoring ${symbol} with exchanges ${spread.buyExchange} and ${spread.sellExchange}`);
 
@@ -55,15 +49,9 @@ export class AlertService {
 
   private async processUserAlert(user: User, spread: SpreadResult) {
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:processUserAlert',message:'Processing user alert',data:{userId:user.id,telegramId:user.telegramId,threshold:Number(user.threshold),spreadPercent:spread.spreadPercent,plan:user.plan},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-      // #endregion
       
       // 1. Check muted status
       const isMuted = this.userService.isCurrentlyMuted(user);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:processUserAlert',message:'Muted check',data:{userId:user.id,isMuted,isMutedField:user.isMuted,mutedUntil:user.mutedUntil?.toISOString()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-      // #endregion
       if (isMuted) {
         this.logger.debug(`User ${user.telegramId} is muted, skipping alert`);
         return;
@@ -76,29 +64,25 @@ export class AlertService {
         : null;
       const effectiveThreshold = coinThreshold !== null ? coinThreshold : Number(user.threshold);
       const thresholdCheck = spread.spreadPercent >= effectiveThreshold;
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:processUserAlert',message:'Threshold check',data:{userId:user.id,symbol:spread.symbol,spreadPercent:spread.spreadPercent,coinThreshold,userThreshold:Number(user.threshold),effectiveThreshold,thresholdCheck},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
-      // #endregion
       if (!thresholdCheck) {
         this.logger.debug(`Spread ${spread.spreadPercent.toFixed(2)}% < threshold ${effectiveThreshold}% (${coinThreshold !== null ? 'coin-specific' : 'default'}) for user ${user.telegramId}`);
         return;
       }
 
-      // 3. Check cooldown
-      const cooldownCheck = await this.checkCooldown(user.id, spread);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:processUserAlert',message:'Cooldown check',data:{userId:user.id,symbol:spread.symbol,buyExchange:spread.buyExchange,sellExchange:spread.sellExchange,cooldownCheck},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})}).catch(()=>{});
-      // #endregion
-      if (!cooldownCheck) {
+      // 3. Check and set cooldown atomically (prevents race conditions)
+      const canSendAlert = await this.cache.checkAndSetCooldown(
+        user.id,
+        spread.symbol,
+        spread.buyExchange,
+        spread.sellExchange,
+      );
+      if (!canSendAlert) {
         this.logger.debug(`User ${user.telegramId} is in cooldown for ${spread.symbol} ${spread.buyExchange}->${spread.sellExchange}`);
         return;
       }
 
       // 4. Check daily limit
       const canSend = this.userService.canSendAlert(user);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:processUserAlert',message:'Daily limit check',data:{userId:user.id,plan:user.plan,dailyAlertsSent:user.dailyAlertsSent,canSend},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-      // #endregion
       if (!canSend) {
         this.logger.debug(`User ${user.telegramId} has reached daily alert limit`);
         return;
@@ -110,9 +94,6 @@ export class AlertService {
         .map((e) => e.exchangeId) || [];
       const hasBuyExchange = userExchanges.includes(spread.buyExchange);
       const hasSellExchange = userExchanges.includes(spread.sellExchange);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:processUserAlert',message:'Exchange check',data:{userId:user.id,userExchanges,buyExchange:spread.buyExchange,sellExchange:spread.sellExchange,hasBuyExchange,hasSellExchange},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
-      // #endregion
       if (!hasBuyExchange || !hasSellExchange) {
         this.logger.debug(`User ${user.telegramId} does not have both exchanges: has ${spread.buyExchange}=${hasBuyExchange}, has ${spread.sellExchange}=${hasSellExchange}`);
         return;
@@ -120,9 +101,6 @@ export class AlertService {
 
       // All conditions passed - send alert via queue
       this.logger.log(`All checks passed for user ${user.telegramId}, queuing alert for ${spread.symbol} ${spread.spreadPercent.toFixed(2)}%`);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:processUserAlert',message:'All checks passed, queuing alert',data:{userId:user.id,telegramId:user.telegramId,symbol:spread.symbol,spreadPercent:spread.spreadPercent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
-      // #endregion
       
       // Add to queue for async processing
       await this.queueService.addAlertJob({
@@ -141,9 +119,6 @@ export class AlertService {
       await this.sendAlert(user, spread);
     } catch (error) {
       this.logger.error(`Error processing alert for user ${user.telegramId}: ${error.message}`);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:processUserAlert',message:'Error processing alert',data:{userId:user.id,telegramId:user.telegramId,error:error.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'M'})}).catch(()=>{});
-      // #endregion
     }
   }
 
@@ -170,15 +145,9 @@ export class AlertService {
   }
 
   private async sendAlert(user: User, spread: SpreadResult) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:sendAlert',message:'Attempting to send alert',data:{userId:user.id,telegramId:user.telegramId,symbol:spread.symbol,spreadPercent:spread.spreadPercent,hasBot:!!this.bot},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'N'})}).catch(()=>{});
-    // #endregion
     
     if (!this.bot) {
       this.logger.error('Bot instance not set', { userId: user.id, telegramId: user.telegramId });
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:sendAlert',message:'Bot instance not set',data:{userId:user.id,telegramId:user.telegramId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'O'})}).catch(()=>{});
-      // #endregion
       return;
     }
 
@@ -186,21 +155,14 @@ export class AlertService {
     const keyboard = this.createAlertKeyboard(spread);
 
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:sendAlert',message:'Sending telegram message',data:{userId:user.id,telegramId:user.telegramId,messageLength:message.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
-      // #endregion
       
       await this.bot.telegram.sendMessage(user.telegramId, message, {
         parse_mode: 'HTML',
         reply_markup: keyboard,
       });
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:sendAlert',message:'Telegram message sent successfully',data:{userId:user.id,telegramId:user.telegramId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'Q'})}).catch(()=>{});
-      // #endregion
-
-      // Set cooldown
-      await this.setCooldown(user.id, spread);
+      // Cooldown already set atomically in checkAndSetCooldown()
+      // No need to set again here
 
       // Increment daily count
       await this.userRepo.incrementDailyAlerts(user.id);
@@ -239,9 +201,6 @@ export class AlertService {
           stack: error.stack,
         },
       );
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'alert.service.ts:sendAlert',message:'Failed to send telegram message',data:{userId:user.id,telegramId:user.telegramId,error:error.message,errorStack:error.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'R'})}).catch(()=>{});
-      // #endregion
     }
   }
 

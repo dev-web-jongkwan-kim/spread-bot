@@ -546,9 +546,6 @@ export class ExchangeService implements OnModuleInit, OnModuleDestroy {
     symbol: string,
     exchangeIds: string[],
   ): Promise<Record<string, number>> {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'exchange.service.ts:fetchPricesForSymbol',message:'Fetching prices',data:{symbol,exchangeIds},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'V'})}).catch(()=>{});
-    // #endregion
     
     const tasks = exchangeIds.map((exchangeId) =>
       this.fetchTicker(exchangeId, symbol),
@@ -564,9 +561,6 @@ export class ExchangeService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'exchange.service.ts:fetchPricesForSymbol',message:'Prices fetched',data:{symbol,prices,priceCount:Object.keys(prices).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'W'})}).catch(()=>{});
-    // #endregion
 
     return prices;
   }

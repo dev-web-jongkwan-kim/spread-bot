@@ -77,28 +77,42 @@ export class SubscriptionService {
     };
 
     try {
-      const response = await fetch(`${this.apiBase}/checkouts`, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/vnd.api+json',
-          'Content-Type': 'application/vnd.api+json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-      if (response.status === 201) {
-        const data = await response.json();
-        return data.data?.attributes?.url || null;
-      } else {
-        const errorText = await response.text();
-        this.logger.error(
-          `Checkout creation failed: ${response.status} - ${errorText}`,
-        );
-        return null;
+      try {
+        const response = await fetch(`${this.apiBase}/checkouts`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/vnd.api+json',
+            'Content-Type': 'application/vnd.api+json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.status === 201) {
+          const data = await response.json();
+          return data.data?.attributes?.url || null;
+        } else {
+          const errorText = await response.text();
+          this.logger.error(
+            `Checkout creation failed: ${response.status} - ${errorText}`,
+          );
+          return null;
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (error) {
-      this.logger.error(`Checkout creation error: ${error}`);
+      if (error.name === 'AbortError') {
+        this.logger.error('Checkout creation timeout after 10 seconds');
+      } else {
+        this.logger.error(`Checkout creation error: ${error}`);
+      }
       return null;
     }
   }
@@ -112,27 +126,164 @@ export class SubscriptionService {
     }
 
     try {
-      // Lemon Squeezy API를 통해 구독 취소
-      const response = await fetch(`${this.apiBase}/subscriptions/${subscriptionId}`, {
-        method: 'DELETE',
-        headers: {
-          Accept: 'application/vnd.api+json',
-          'Content-Type': 'application/vnd.api+json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-      if (response.status === 200 || response.status === 204) {
-        this.logger.log(`Subscription ${subscriptionId} cancelled successfully`);
-        return true;
-      } else {
-        const errorText = await response.text();
-        this.logger.error(`Subscription cancellation failed: ${response.status} - ${errorText}`);
-        return false;
+      try {
+        // Lemon Squeezy API를 통해 구독 취소
+        const response = await fetch(`${this.apiBase}/subscriptions/${subscriptionId}`, {
+          method: 'DELETE',
+          headers: {
+            Accept: 'application/vnd.api+json',
+            'Content-Type': 'application/vnd.api+json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.status === 200 || response.status === 204) {
+          this.logger.log(`Subscription ${subscriptionId} cancelled successfully`);
+          return true;
+        } else {
+          const errorText = await response.text();
+          this.logger.error(`Subscription cancellation failed: ${response.status} - ${errorText}`);
+          return false;
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (error) {
-      this.logger.error(`Subscription cancellation error: ${error}`);
+      if (error.name === 'AbortError') {
+        this.logger.error(`Subscription cancellation timeout after 10 seconds`);
+      } else {
+        this.logger.error(`Subscription cancellation error: ${error}`);
+      }
       return false;
+    }
+  }
+
+  async changePlan(
+    subscriptionId: string,
+    newPlan: PlanType,
+    yearly: boolean,
+  ): Promise<boolean> {
+    const apiKey = this.config.lemonsqueezyApiKey;
+    const newVariantId = this.getVariantId(newPlan, yearly);
+
+    if (!apiKey || !subscriptionId || !newVariantId) {
+      this.logger.warn('Lemon Squeezy configuration missing, subscription ID or variant ID not provided');
+      return false;
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      try {
+        const payload = {
+          data: {
+            type: 'subscriptions',
+            id: subscriptionId,
+            attributes: {
+              variant_id: newVariantId,
+            },
+          },
+        };
+
+        // Update subscription variant
+        const response = await fetch(`${this.apiBase}/subscriptions/${subscriptionId}`, {
+          method: 'PATCH',
+          headers: {
+            Accept: 'application/vnd.api+json',
+            'Content-Type': 'application/vnd.api+json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.status === 200) {
+          this.logger.log(`Subscription ${subscriptionId} changed to plan ${newPlan} (${yearly ? 'yearly' : 'monthly'})`);
+          return true;
+        } else {
+          const errorText = await response.text();
+          this.logger.error(`Subscription plan change failed: ${response.status} - ${errorText}`);
+          return false;
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        this.logger.error(`Subscription plan change timeout after 10 seconds`);
+      } else {
+        this.logger.error(`Subscription plan change error: ${error}`);
+      }
+      return false;
+    }
+  }
+
+  async getInvoices(subscriptionId: string): Promise<any[] | null> {
+    const apiKey = this.config.lemonsqueezyApiKey;
+
+    if (!apiKey || !subscriptionId) {
+      this.logger.warn('Lemon Squeezy configuration missing or subscription ID not provided');
+      return null;
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      try {
+        // Fetch subscription invoices
+        const response = await fetch(
+          `${this.apiBase}/subscription-invoices?filter[subscription_id]=${subscriptionId}`,
+          {
+            method: 'GET',
+            headers: {
+              Accept: 'application/vnd.api+json',
+              Authorization: `Bearer ${apiKey}`,
+            },
+            signal: controller.signal,
+          },
+        );
+
+        clearTimeout(timeoutId);
+
+        if (response.status === 200) {
+          const data = await response.json();
+          const invoices = data.data?.map((invoice: any) => ({
+            id: invoice.id,
+            status: invoice.attributes.status,
+            total: invoice.attributes.total,
+            currency: invoice.attributes.currency,
+            billingReason: invoice.attributes.billing_reason,
+            createdAt: invoice.attributes.created_at,
+            updatedAt: invoice.attributes.updated_at,
+            urls: invoice.attributes.urls,
+          })) || [];
+
+          return invoices;
+        } else {
+          const errorText = await response.text();
+          this.logger.error(`Failed to fetch invoices: ${response.status} - ${errorText}`);
+          return null;
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        this.logger.error(`Fetch invoices timeout after 10 seconds`);
+      } else {
+        this.logger.error(`Fetch invoices error: ${error}`);
+      }
+      return null;
     }
   }
 }

@@ -1,10 +1,11 @@
 import { Module, Global } from '@nestjs/common';
 import { QueueService } from './queue.service';
-import { RedisService } from '../redis/redis.service';
+import { RedisModule } from '../redis/redis.module';
 
 @Global()
 @Module({
-  providers: [QueueService, RedisService],
+  imports: [RedisModule],
+  providers: [QueueService],
   exports: [QueueService],
 })
 export class QueueModule {}
