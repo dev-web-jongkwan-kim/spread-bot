@@ -110,7 +110,7 @@ export const QUOTE_CURRENCY = 'USDT';
 
 // Thresholds
 export const PRESET_THRESHOLDS: number[] = [0.5, 1.0, 1.5, 2.0, 3.0, 5.0];
-export const MIN_THRESHOLD = 0.1;
+export const MIN_THRESHOLD = 0.01;
 export const MAX_THRESHOLD = 10.0;
 export const DEFAULT_THRESHOLD = 1.0;
 

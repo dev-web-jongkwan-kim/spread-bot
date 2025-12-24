@@ -50,6 +50,27 @@ export class CacheService {
       this.config.alertCooldownSeconds,
     );
   }
+
+  /**
+   * Atomically check and set cooldown in a single operation
+   * Returns true if cooldown was successfully set (not in cooldown)
+   * Returns false if already in cooldown
+   */
+  async checkAndSetCooldown(
+    userId: string,
+    symbol: string,
+    buyExchange: string,
+    sellExchange: string,
+  ): Promise<boolean> {
+    const key = `cooldown:${userId}:${symbol}:${buyExchange}:${sellExchange}`;
+    const value = new Date().toISOString();
+    const ttl = this.config.alertCooldownSeconds;
+
+    // Use Redis SET with NX (only set if not exists) and EX (expiration)
+    // This is atomic - no race condition possible
+    const result = await this.redis.setNX(key, value, ttl);
+    return result;
+  }
 }
 
 

@@ -39,6 +39,20 @@ export class ConfigService {
     return this.configService.get<string>('TELEGRAM_WEBHOOK_SECRET');
   }
 
+  // JWT
+  get jwtSecret(): string {
+    return this.configService.get<string>('JWT_SECRET') || '';
+  }
+
+  get jwtExpiresIn(): string {
+    return this.configService.get<string>('JWT_EXPIRES_IN', '30d');
+  }
+
+  // Admin
+  get adminTelegramId(): string {
+    return this.configService.get<string>('ADMIN_TELEGRAM_ID') || '';
+  }
+
   // Database
   get databaseUrl(): string {
     return this.configService.get<string>('DATABASE_URL') || '';

@@ -64,6 +64,21 @@ export class User {
   @Column({ type: 'timestamptz', nullable: true, name: 'ls_current_period_end' })
   lsCurrentPeriodEnd: Date | null;
 
+  @Column({ type: 'timestamptz', nullable: true, name: 'payment_failed_at' })
+  paymentFailedAt: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true, name: 'grace_period_ends_at' })
+  gracePeriodEndsAt: Date | null;
+
+  @Column({ type: 'int', default: 0, name: 'payment_failure_count' })
+  paymentFailureCount: number;
+
+  @Column({ type: 'boolean', default: false, name: 'is_deleted' })
+  isDeleted: boolean;
+
+  @Column({ type: 'timestamptz', nullable: true, name: 'deleted_at' })
+  deletedAt: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;
 

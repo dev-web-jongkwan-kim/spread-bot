@@ -6,6 +6,13 @@ export class EnvValidator {
   static validate(config: any): void {
     const errors: string[] = [];
 
+    // Required in all environments
+    if (!config.jwtSecret) {
+      errors.push('JWT_SECRET is required');
+    } else if (config.jwtSecret.length < 32) {
+      errors.push('JWT_SECRET must be at least 32 characters long');
+    }
+
     // Required in production
     if (config.appEnv === 'production') {
       if (!config.databaseUrl) {
@@ -22,6 +29,22 @@ export class EnvValidator {
     // Validate database URL format
     if (config.databaseUrl && !config.databaseUrl.startsWith('postgresql://')) {
       errors.push('DATABASE_URL must be a valid PostgreSQL connection string');
+    }
+
+    // Validate database credentials in production
+    if (config.appEnv === 'production' && config.databaseUrl) {
+      const defaultCredentials = [
+        'postgres:postgres',
+        'admin:admin',
+        'root:root',
+        'user:user',
+      ];
+
+      for (const cred of defaultCredentials) {
+        if (config.databaseUrl.includes(cred)) {
+          errors.push(`DATABASE_URL contains default credentials (${cred.split(':')[0]}) in production - this is a security risk`);
+        }
+      }
     }
 
     // Validate port

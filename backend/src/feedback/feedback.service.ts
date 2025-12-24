@@ -11,12 +11,17 @@ export interface FeedbackData {
   metadata?: Record<string, any>;
 }
 
+export interface StoredFeedback extends FeedbackData {
+  id: string;
+  createdAt: Date;
+}
+
 @Injectable()
 export class FeedbackService {
   private readonly logger = new Logger(FeedbackService.name);
 
   // In-memory storage for now (can be moved to DB later)
-  private feedbacks: FeedbackData[] = [];
+  private feedbacks: StoredFeedback[] = [];
 
   async submitFeedback(feedback: FeedbackData): Promise<{ success: boolean; id: string }> {
     const id = `feedback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

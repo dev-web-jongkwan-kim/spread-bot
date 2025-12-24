@@ -7,6 +7,7 @@ import { UserService } from './user/user.service';
 import { UserRole, PlanType } from './common/constants';
 import { EnvValidator } from './common/env-validator';
 import * as helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import * as Sentry from '@sentry/node';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
@@ -15,6 +16,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const config = app.get(ConfigService);
+  const port = config.port;
 
   // Environment validation
   try {
@@ -69,6 +71,9 @@ async function bootstrap() {
     }
   }
 
+  // Cookie parser
+  app.use(cookieParser());
+
   // Security: Helmet
   app.use(helmet.default({
     contentSecurityPolicy: {
@@ -80,6 +85,14 @@ async function bootstrap() {
       },
     },
     crossOriginEmbedderPolicy: false,
+    hsts: config.appEnv === 'production' ? {
+      maxAge: 31536000, // 1 year
+      includeSubDomains: true,
+      preload: true,
+    } : false,
+    noSniff: true,
+    frameguard: { action: 'deny' },
+    xssFilter: true,
   }));
 
   // CORS - Production-safe configuration
@@ -110,16 +123,19 @@ async function bootstrap() {
         return callback(null, true);
       }
 
-      // Development: Allow localhost and ngrok
-      if (config.appEnv !== 'production') {
-        if (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('ngrok')) {
-          return callback(null, true);
-        }
-      }
-
-      // Check against allowed origins
+      // Check against allowed origins first
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
+      }
+
+      // Development: Allow localhost and ngrok with strict pattern matching
+      if (config.appEnv !== 'production') {
+        const localhostPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+        const ngrokPattern = /^https:\/\/[a-z0-9-]+\.ngrok(-free)?\.app$/;
+
+        if (localhostPattern.test(origin) || ngrokPattern.test(origin)) {
+          return callback(null, true);
+        }
       }
 
       // Production: Reject unknown origins
@@ -128,13 +144,25 @@ async function bootstrap() {
         return callback(new Error('Not allowed by CORS'), false);
       }
 
-      // Development: Allow all
-      callback(null, true);
+      // Development: Reject unknown origins
+      console.warn(`[CORS DEV] Blocked request from origin: ${origin}`);
+      return callback(new Error('Not allowed by CORS'), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     exposedHeaders: ['X-Total-Count', 'X-Page', 'X-Per-Page'],
+  });
+
+  // API Versioning - Apply global prefix for all routes except health and webhook
+  app.setGlobalPrefix('api/v1', {
+    exclude: [
+      'health',
+      'health/ready',
+      'health/live',
+      'webhook/telegram',
+      'webhook/lemonsqueezy',
+    ],
   });
 
   // Global validation pipe
@@ -234,33 +262,41 @@ async function bootstrap() {
   // 어드민 계정 생성/확인
   try {
     const userService = app.get(UserService);
-    const ADMIN_TELEGRAM_ID = 123456789; // 어드민용 고정 Telegram ID
-    
-    let adminUser = await userService.getByTelegramId(ADMIN_TELEGRAM_ID);
-    
-    if (!adminUser) {
-      // 어드민 계정 생성
-      adminUser = await userService.createOrUpdate(ADMIN_TELEGRAM_ID, {
-        username: 'admin',
-        firstName: 'System',
-        lastName: 'Admin',
-        plan: PlanType.WHALE,
-      });
-      console.log('[ADMIN] Created admin account with Telegram ID:', ADMIN_TELEGRAM_ID);
-    }
-    
-    // 어드민 권한 확인 및 설정
-    if ((adminUser as any).role !== UserRole.ADMIN) {
-      await userService.update(adminUser.id, { role: UserRole.ADMIN } as any);
-      console.log('[ADMIN] Updated admin role for user:', adminUser.id);
+    const adminTelegramIdStr = config.adminTelegramId;
+
+    if (!adminTelegramIdStr) {
+      console.warn('[ADMIN] ADMIN_TELEGRAM_ID not configured, skipping admin setup');
     } else {
-      console.log('[ADMIN] Admin account exists:', adminUser.id);
+      const adminTelegramId = parseInt(adminTelegramIdStr, 10);
+      if (isNaN(adminTelegramId)) {
+        console.error('[ADMIN] ADMIN_TELEGRAM_ID must be a valid number');
+      } else {
+        let adminUser = await userService.getByTelegramId(adminTelegramId);
+
+        if (!adminUser) {
+          // 어드민 계정 생성
+          adminUser = await userService.createOrUpdate(adminTelegramId, {
+          username: 'admin',
+          firstName: 'System',
+          lastName: 'Admin',
+          plan: PlanType.WHALE,
+        });
+          console.log('[ADMIN] Created admin account with Telegram ID:', adminTelegramId);
+        }
+
+        // 어드민 권한 확인 및 설정
+        if ((adminUser as any).role !== UserRole.ADMIN) {
+          await userService.update(adminUser.id, { role: UserRole.ADMIN } as any);
+          console.log('[ADMIN] Updated admin role for user:', adminUser.id);
+        } else {
+          console.log('[ADMIN] Admin account exists:', adminUser.id);
+        }
+      }
     }
   } catch (error) {
     console.warn('[ADMIN] Failed to setup admin account:', error);
   }
 
-  const port = config.port;
   await app.listen(port);
   
   console.log('==========================================');

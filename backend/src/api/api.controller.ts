@@ -8,13 +8,18 @@ import { UserExchange } from '../database/entities/user-exchange.entity';
 import { UnifiedSymbol } from '../database/entities/unified-symbol.entity';
 import { UnifiedSymbolExchange } from '../database/entities/unified-symbol-exchange.entity';
 import { UserService } from '../user/user.service';
-import { SUPPORTED_EXCHANGES, PlanType } from '../common/constants';
+import { SUPPORTED_EXCHANGES, PlanType, Language } from '../common/constants';
 import { AuthGuard } from '../auth/auth.guard';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { ExchangeService } from '../exchange/exchange.service';
 import { SymbolService } from '../symbol/symbol.service';
 import { CoinGeckoService } from '../coingecko/coingecko.service';
 import { normalizeSymbol, normalizePrice } from '../common/symbol-normalizer';
+import { AddCoinDto } from './dto/add-coin.dto';
+import { UpdateThresholdDto } from './dto/update-threshold.dto';
+import { CreateCheckoutDto } from './dto/create-checkout.dto';
+import { UpdateLanguageDto } from './dto/update-language.dto';
+import { MuteSettingsDto } from './dto/mute-settings.dto';
 
 @Controller('api')
 @UseGuards(AuthGuard)
@@ -47,22 +52,19 @@ export class ApiController {
     @Query('page') page?: string,
     @Request() req?: any,
   ) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.controller.ts:getAlerts',message:'Get alerts request',data:{limit,page,userId:req?.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-    
-    const userId = req?.user?.id || req?.headers?.['x-user-id'];
+    const userId = req?.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
+
     const limitNum = limit ? parseInt(limit, 10) : 20;
     const pageNum = page ? parseInt(page, 10) : 1;
     const offset = (pageNum - 1) * limitNum;
 
     let query = this.alertRepo
       .createQueryBuilder('alert')
+      .where('alert.userId = :userId', { userId })
       .orderBy('alert.createdAt', 'DESC');
-
-    if (userId) {
-      query = query.where('alert.userId = :userId', { userId });
-    }
 
     // 총 개수 조회 (has_more 판단용)
     const totalCount = await query.getCount();
@@ -92,31 +94,9 @@ export class ApiController {
 
   @Get('stats')
   async getStats(@Request() req?: any) {
-    // 임시로 전체 통계 반환 (실제로는 인증 미들웨어 필요)
-    const userId = req?.user?.id || req?.headers?.['x-user-id'];
+    const userId = req?.user?.id;
     if (!userId) {
-      // 개발 모드: 전체 통계 반환
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const [totalAlerts, todayAlerts] = await Promise.all([
-        this.alertRepo.count(),
-        this.alertRepo
-          .createQueryBuilder('alert')
-          .where('alert.createdAt >= :today', { today })
-          .getCount(),
-      ]);
-
-      const avgSpreadResult = await this.alertRepo
-        .createQueryBuilder('alert')
-        .select('AVG(alert.spreadPercent)', 'avg')
-        .getRawOne();
-
-      return {
-        total_alerts: totalAlerts,
-        today_alerts: todayAlerts,
-        avg_spread: avgSpreadResult?.avg ? Number(avgSpreadResult.avg) : 0,
-      };
+      throw new BadRequestException('User ID is required');
     }
 
     const today = new Date();
@@ -167,7 +147,7 @@ export class ApiController {
   }
 
   @Post('coins')
-  async addCoin(@Body() body: { symbol: string }, @Request() req: any) {
+  async addCoin(@Body() body: AddCoinDto, @Request() req: any) {
     const userId = req?.user?.id;
     if (!userId) {
       throw new NotFoundException('User not found');
@@ -275,9 +255,6 @@ export class ApiController {
 
   @Get('exchanges')
   async getExchanges(@Request() req: any) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.controller.ts:getExchanges',message:'Get exchanges request',data:{userId:req?.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     const userId = req?.user?.id;
     const userExchanges: string[] = [];
 
@@ -300,9 +277,6 @@ export class ApiController {
 
   @Post('exchanges/:exchangeId/toggle')
   async toggleExchange(@Param('exchangeId') exchangeId: string, @Request() req: any) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.controller.ts:toggleExchange',message:'Toggle exchange request',data:{exchangeId,userId:req?.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     const userId = req?.user?.id;
     if (!userId) {
       throw new NotFoundException('User not found');
@@ -354,7 +328,7 @@ export class ApiController {
   }
 
   @Put('settings/threshold')
-  async updateThreshold(@Body() body: { threshold: number }, @Request() req: any) {
+  async updateThreshold(@Body() body: UpdateThresholdDto, @Request() req: any) {
     const userId = req?.user?.id;
     if (!userId) {
       throw new NotFoundException('User not found');
@@ -386,7 +360,7 @@ export class ApiController {
   }
 
   @Put('settings/language')
-  async updateLanguage(@Body() body: { language: string }, @Request() req: any) {
+  async updateLanguage(@Body() body: UpdateLanguageDto, @Request() req: any) {
     const userId = req?.user?.id;
     if (!userId) {
       throw new NotFoundException('User not found');
@@ -402,7 +376,7 @@ export class ApiController {
   }
 
   @Post('settings/mute')
-  async setMute(@Body() body: { minutes: number | null }, @Request() req: any) {
+  async setMute(@Body() body: MuteSettingsDto, @Request() req: any) {
     const userId = req?.user?.id;
     if (!userId) {
       throw new NotFoundException('User not found');
@@ -411,7 +385,7 @@ export class ApiController {
     const minutes = body.minutes;
     let mutedUntil: Date | null = null;
 
-    if (minutes !== null) {
+    if (minutes !== null && minutes !== undefined) {
       mutedUntil = new Date();
       mutedUntil.setMinutes(mutedUntil.getMinutes() + minutes);
     }
@@ -440,10 +414,7 @@ export class ApiController {
   }
 
   @Post('subscription/checkout')
-  async createCheckout(@Body() body: { plan: string; yearly: boolean }, @Request() req: any) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.controller.ts:createCheckout',message:'Create checkout request',data:{plan:body.plan,yearly:body.yearly,userId:req?.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
+  async createCheckout(@Body() body: CreateCheckoutDto, @Request() req: any) {
     
     const userId = req?.user?.id;
     if (!userId) {
@@ -624,10 +595,7 @@ export class ApiController {
 
   @Post('subscription/cancel')
   async cancelSubscription(@Request() req: any) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.controller.ts:cancelSubscription',message:'Cancel subscription request',data:{userId:req?.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'SUBSCRIPTION'})}).catch(()=>{});
-    // #endregion
-    
+
     const userId = req?.user?.id;
     if (!userId) {
       throw new NotFoundException('User not found');
@@ -647,29 +615,184 @@ export class ApiController {
     if (!user.lsSubscriptionId) {
       // 구독 ID가 없으면 수동으로 플랜을 무료로 변경
       await this.userService.update(userId, { plan: PlanType.FREE });
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.controller.ts:cancelSubscription',message:'Subscription cancelled manually',data:{userId,oldPlan:user.plan},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'SUBSCRIPTION'})}).catch(()=>{});
-      // #endregion
       return { message: 'Subscription cancelled' };
     }
 
     // Lemon Squeezy를 통해 구독 취소 시도
     const cancelled = await this.subscriptionService.cancelSubscription(user.lsSubscriptionId);
-    
+
     if (cancelled) {
       await this.userService.update(userId, { plan: PlanType.FREE, lsSubscriptionId: null });
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.controller.ts:cancelSubscription',message:'Subscription cancelled via Lemon Squeezy',data:{userId,subscriptionId:user.lsSubscriptionId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'SUBSCRIPTION'})}).catch(()=>{});
-      // #endregion
       return { message: 'Subscription cancelled successfully' };
     } else {
       // Lemon Squeezy 취소 실패 시에도 수동으로 플랜 변경
       await this.userService.update(userId, { plan: PlanType.FREE });
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.controller.ts:cancelSubscription',message:'Subscription cancelled manually after Lemon Squeezy failure',data:{userId,subscriptionId:user.lsSubscriptionId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'SUBSCRIPTION'})}).catch(()=>{});
-      // #endregion
       return { message: 'Subscription cancelled (manual)' };
     }
+  }
+
+  @Post('subscription/change-plan')
+  async changePlan(@Body() body: CreateCheckoutDto, @Request() req: any) {
+    const userId = req?.user?.id;
+    if (!userId) {
+      throw new NotFoundException('User not found');
+    }
+
+    const user = await this.userService.getById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { plan, yearly } = body;
+    const validPlans = ['basic', 'pro', 'whale'];
+    if (!validPlans.includes(plan)) {
+      throw new BadRequestException('Invalid plan. Can only change to basic, pro, or whale.');
+    }
+
+    if (user.plan === PlanType.FREE) {
+      throw new BadRequestException('Cannot change plan without active subscription. Please create a new subscription first.');
+    }
+
+    if (!user.lsSubscriptionId) {
+      throw new BadRequestException('No active subscription found. Please create a new subscription.');
+    }
+
+    const newPlan = plan as PlanType;
+
+    // Check if trying to change to the same plan
+    if (user.plan === newPlan) {
+      throw new BadRequestException('You are already on this plan');
+    }
+
+    this.logger.log(`Changing plan for user ${userId} from ${user.plan} to ${newPlan} (${yearly ? 'yearly' : 'monthly'})`);
+
+    const changed = await this.subscriptionService.changePlan(
+      user.lsSubscriptionId,
+      newPlan,
+      yearly,
+    );
+
+    if (changed) {
+      // Note: The actual plan update will be handled by the webhook from LemonSqueezy
+      return {
+        message: 'Plan change initiated successfully. Your plan will be updated shortly.',
+        newPlan,
+      };
+    } else {
+      throw new BadRequestException('Failed to change plan. Please try again or contact support.');
+    }
+  }
+
+  @Get('plan/recommendation')
+  async getPlanRecommendation(@Request() req: any) {
+    const userId = req?.user?.id;
+    if (!userId) {
+      throw new NotFoundException('User not found');
+    }
+
+    const user = await this.userService.getById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const currentPlan = user.plan as PlanType;
+    const limits = PLAN_LIMITS[currentPlan];
+
+    const activeCoins = user.coins?.filter((c) => c.isActive).length || 0;
+    const activeExchanges = user.exchanges?.filter((e) => e.isActive).length || 0;
+
+    // Calculate usage percentages
+    const coinUsagePercent = limits.maxCoins === -1 ? 0 : (activeCoins / limits.maxCoins) * 100;
+    const exchangeUsagePercent = limits.maxExchanges === -1 ? 0 : (activeExchanges / limits.maxExchanges) * 100;
+    const alertUsagePercent = limits.dailyAlerts === -1 ? 0 : (user.dailyAlertsSent / limits.dailyAlerts) * 100;
+
+    let recommendedPlan: PlanType | null = null;
+    const reasons: string[] = [];
+
+    // Recommendation logic
+    if (currentPlan === PlanType.FREE) {
+      if (coinUsagePercent >= 80 || exchangeUsagePercent >= 80 || alertUsagePercent >= 80) {
+        recommendedPlan = PlanType.BASIC;
+        if (coinUsagePercent >= 80) reasons.push('You are using 80%+ of your coin limit');
+        if (exchangeUsagePercent >= 80) reasons.push('You are using 80%+ of your exchange limit');
+        if (alertUsagePercent >= 80) reasons.push('You are using 80%+ of your daily alert limit');
+        reasons.push('BASIC plan offers more coins, exchanges, and unlimited alerts');
+      }
+    } else if (currentPlan === PlanType.BASIC) {
+      if (coinUsagePercent >= 80 || exchangeUsagePercent >= 80) {
+        recommendedPlan = PlanType.PRO;
+        if (coinUsagePercent >= 80) reasons.push('You are using 80%+ of your coin limit');
+        if (exchangeUsagePercent >= 80) reasons.push('You are using 80%+ of your exchange limit');
+        reasons.push('PRO plan offers unlimited coins, more exchanges, and custom thresholds');
+      }
+    } else if (currentPlan === PlanType.PRO) {
+      if (exchangeUsagePercent >= 80) {
+        recommendedPlan = PlanType.WHALE;
+        reasons.push('You are using 80%+ of your exchange limit');
+        reasons.push('WHALE plan offers unlimited exchanges and API access');
+      }
+    }
+
+    return {
+      currentPlan,
+      recommendedPlan,
+      reasons: reasons.length > 0 ? reasons : ['You are using your current plan efficiently'],
+      usage: {
+        coins: {
+          active: activeCoins,
+          limit: limits.maxCoins === -1 ? 'unlimited' : limits.maxCoins,
+          percentage: limits.maxCoins === -1 ? 0 : Math.round(coinUsagePercent),
+        },
+        exchanges: {
+          active: activeExchanges,
+          limit: limits.maxExchanges === -1 ? 'unlimited' : limits.maxExchanges,
+          percentage: limits.maxExchanges === -1 ? 0 : Math.round(exchangeUsagePercent),
+        },
+        alerts: {
+          sent: user.dailyAlertsSent,
+          limit: limits.dailyAlerts === -1 ? 'unlimited' : limits.dailyAlerts,
+          percentage: limits.dailyAlerts === -1 ? 0 : Math.round(alertUsagePercent),
+        },
+      },
+    };
+  }
+
+  @Get('subscription/invoices')
+  async getInvoices(@Request() req: any) {
+    const userId = req?.user?.id;
+    if (!userId) {
+      throw new NotFoundException('User not found');
+    }
+
+    const user = await this.userService.getById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.plan === PlanType.FREE) {
+      return {
+        invoices: [],
+        message: 'No subscription found',
+      };
+    }
+
+    if (!user.lsSubscriptionId) {
+      return {
+        invoices: [],
+        message: 'No active subscription',
+      };
+    }
+
+    const invoices = await this.subscriptionService.getInvoices(user.lsSubscriptionId);
+
+    if (invoices === null) {
+      throw new BadRequestException('Failed to fetch invoices. Please try again later.');
+    }
+
+    return {
+      invoices,
+      subscriptionId: user.lsSubscriptionId,
+    };
   }
 
   @Get('symbols')
@@ -678,9 +801,6 @@ export class ApiController {
     @Query('search') search?: string,
     @Request() req?: any,
   ) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a47973cd-9634-493b-840b-96b08b73f086',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.controller.ts:getSymbols',message:'Get symbols request',data:{exchangeId,search,userId:req?.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'SYMBOLS'})}).catch(()=>{});
-    // #endregion
 
     const userId = req?.user?.id;
     if (!userId) {
@@ -1091,7 +1211,13 @@ export class ApiController {
       throw new BadRequestException('User not authenticated');
     }
 
-    this.logger.log(`[GDPR] Deleting data for user: ${userId}`);
+    const user = await this.userService.getById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const originalTelegramId = user.telegramId;
+    this.logger.log(`[GDPR] Deleting data for user: ${userId} (Telegram ID: ${originalTelegramId})`);
 
     // Delete all user-related data
     await this.alertRepo.delete({ userId });
@@ -1099,18 +1225,22 @@ export class ApiController {
     await this.userExchangeRepo.delete({ userId });
 
     // Anonymize user data instead of deleting (for legal/audit purposes)
+    // Use negative telegram ID to avoid conflicts and maintain uniqueness
     await this.userRepo.update(userId, {
-      telegramId: 0,
-      username: 'deleted_user',
+      telegramId: -Math.abs(originalTelegramId),
+      username: `deleted_${Date.now()}`,
       firstName: 'Deleted',
       lastName: 'User',
-      language: 'en',
+      language: Language.EN,
       plan: PlanType.FREE,
       threshold: 0,
       isMuted: true,
       dailyAlertsSent: 0,
       lsSubscriptionId: null,
       lsSubscriptionStatus: null,
+      lsCurrentPeriodEnd: null,
+      isDeleted: true,
+      deletedAt: new Date(),
     });
 
     this.logger.log(`[GDPR] User data deleted/anonymized: ${userId}`);

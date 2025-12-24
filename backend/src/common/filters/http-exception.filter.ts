@@ -13,6 +13,44 @@ import * as Sentry from '@sentry/node';
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
+  private readonly SENSITIVE_FIELDS = [
+    'password',
+    'token',
+    'authorization',
+    'auth',
+    'secret',
+    'api_key',
+    'apiKey',
+    'access_token',
+    'refresh_token',
+    'hash',
+    'telegramBotToken',
+    'jwtSecret',
+  ];
+
+  private filterSensitiveData(data: any): any {
+    if (!data || typeof data !== 'object') {
+      return data;
+    }
+
+    const filtered = Array.isArray(data) ? [...data] : { ...data };
+
+    for (const key in filtered) {
+      const lowerKey = key.toLowerCase();
+      const isSensitive = this.SENSITIVE_FIELDS.some(field =>
+        lowerKey.includes(field.toLowerCase())
+      );
+
+      if (isSensitive) {
+        filtered[key] = '[REDACTED]';
+      } else if (typeof filtered[key] === 'object' && filtered[key] !== null) {
+        filtered[key] = this.filterSensitiveData(filtered[key]);
+      }
+    }
+
+    return filtered;
+  }
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -61,9 +99,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
           method: request.method,
         },
         extra: {
-          body: request.body,
-          query: request.query,
-          params: request.params,
+          body: this.filterSensitiveData(request.body),
+          query: this.filterSensitiveData(request.query),
+          params: this.filterSensitiveData(request.params),
         },
       });
     }
